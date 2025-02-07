@@ -4,7 +4,8 @@ import torch.nn.functional as F
 from typing import Any
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from spikingjelly.activation_based import encoding,functional
+import pandas as pd
+import re
 import logging
 
 # train_data_loader=get_train_data_loader(batch_size=batch_size,shuffle=True)
@@ -15,6 +16,11 @@ def train(model:torch.nn.Module,train_data_loader:DataLoader,test_data_loader:Da
     logging.info(f'Model structure:\n{model}')
     model.to(device)
     best_test_acc=0
+    best_epoch=0
+    train_acc_list=[]
+    test_acc_list=[]
+    train_loss_list=[]
+    test_loss_list=[]
     for epoch in range(epochs):
         model.train()
         train_loss=0
@@ -27,18 +33,6 @@ def train(model:torch.nn.Module,train_data_loader:DataLoader,test_data_loader:Da
             optimizer.zero_grad()
             label_onehot=F.one_hot(label,10).float()
 
-            # if 'SDDTP' in str(type(model)):
-            #     # output,loss_list=model(img,label_onehot)
-            #     # for loss in loss_list:
-            #     #     loss.backward(retain_graph=True)
-            #     # loss=F.mse_loss(output,label_onehot)
-            #     output,loss=model(img,label_onehot)
-            #     loss.backward()
-            # else:
-            #     output=model(img)
-            #     loss=F.mse_loss(output,label_onehot)
-            #     loss.backward()
-            # output,tmp_x,tmp_y,loss=model(img,label_onehot)
             output,loss=model(img,label_onehot)
             # output,loss_x,loss_y=model(img,label_onehot)
             loss.backward()
@@ -52,18 +46,31 @@ def train(model:torch.nn.Module,train_data_loader:DataLoader,test_data_loader:Da
         test_loss,test_acc=evaluate(model,test_data_loader,device)
         if test_acc>best_test_acc:
             best_test_acc=test_acc
+            best_epoch=epoch+1
             # torch.save(model.cpu().state_dict(),
             #            result_path+f'/result/{surrogate_type}_{epoch+1}_{test_loss}_{test_acc}.pth')
+            first_str=[string for string in filter(lambda x:x!='',re.split(r'[.>\']+',str(type(model))))][-1]
+            # for name in re.split(r'[.>\']',str(type(model))):
+                # if name.find('SDDTP')!=-1:
+                #     first_str=name
+                #     break
             torch.save(model.cpu().state_dict(),
-                       result_path+f'/result/{"WDRTP_" if "WDRTP" in str(type(model)) else ""}{surrogate_type}_{epoch+1}_{test_loss}\
-_{test_acc}.pth')
+                       result_path+f'/result/{first_str}_{surrogate_type}_{epoch+1}_{test_loss}_{test_acc}.pth')
             model.to(device)
         train_loss/=train_samples
         train_acc/=train_samples
+        train_acc_list.append(train_acc)
+        train_loss_list.append(train_loss)
+        test_acc_list.append(test_acc)
+        test_loss_list.append(test_loss)
         print('Epoch {:3d}: Train loss: {:4f} | Train acc: {:3f} | Test loss: {:4f} | Test acc: {:3f}'
               .format(epoch+1,train_loss,train_acc,test_loss,test_acc))
         logging.info('Epoch {:3d}: Train loss: {:4f} | Train acc: {:3f} | Test loss: {:4f} | Test acc: {:3f}'
               .format(epoch+1,train_loss,train_acc,test_loss,test_acc))
+    print(f'Best test accuracy: {best_test_acc} at epoch {best_epoch}')
+    logging.info(f'Best test accuracy: {best_test_acc} at epoch {best_epoch}')
+    pd.DataFrame({"train_loss":train_loss_list,"test_loss":test_loss_list,"train_acc":train_acc_list,"test_acc":test_acc_list}).to_csv(
+        result_path+'/result/curve.csv')
 
 def evaluate(model:torch.nn.Module,test_data_loader:DataLoader,device:torch.device) -> tuple:
     model.eval()
