@@ -192,9 +192,9 @@ class CASDDTP_CSNN(Base_CSNN):
         self.criterion=criterion
         data_shape=(1,28,28)
         input_shape=(28,28)
-        self.conv_1=ConnectedConv2dBlock(data_shape,input_shape,1,channels,conv_kernel_size=5,conv_stride=1,conv_padding=0,pool_kernel_size=2,
-                                         pool_stride=2,pool_padding=0,label_size=label_size,tau=tau,axon_tau=axon_tau,
-                                         straight_through=straight_through,surrogate_type=surrogate_type,surrogate_param=surrogate_param)
+        self.conv_1=Conv2dBlock(input_shape,1,channels,conv_kernel_size=5,conv_stride=1,conv_padding=0,pool_kernel_size=2,
+                                pool_stride=2,pool_padding=0,label_size=label_size,tau=tau,axon_tau=axon_tau,
+                                straight_through=straight_through,surrogate_type=surrogate_type,surrogate_param=surrogate_param)
         
         input_shape=(self.conv_1.output_height,self.conv_1.output_width)
         self.conv_2=ConnectedConv2dBlock(data_shape,input_shape,channels,channels*2,conv_kernel_size=5,conv_stride=1,conv_padding=0,pool_kernel_size=2,
@@ -211,7 +211,7 @@ class CASDDTP_CSNN(Base_CSNN):
             labels=labels.unsqueeze(1).repeat(1,self.T,1)
             loss_sum=0
 
-            x,y_t=self.conv_1(x,input,True)
+            x,y_t=self.conv_1(x,True)
             loss_sum+=self.criterion(y_t,labels)
             x=x.clone().detach()
 
@@ -226,7 +226,7 @@ class CASDDTP_CSNN(Base_CSNN):
             return x.mean(1),loss_sum
         else:
             x,_=self.conv_1(x)
-            x,_=self.conv_2(x)
+            x,_=self.conv_2(x,input)
             x=self.flatten(x)
             # x,_=self.fc_1(x,None)
             x,_=self.classifier(x)

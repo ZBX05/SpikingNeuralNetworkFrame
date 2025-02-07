@@ -233,17 +233,29 @@ class ConnectedConv2dBlock(ConvBaseBlock):
         super(ConnectedConv2dBlock,self).__init__(input_shape,in_channels,out_channels,conv_kernel_size,conv_stride,conv_padding,
                                                   pool_kernel_size,pool_stride,pool_padding,label_size,tau,axon_tau,straight_through,
                                                   surrogate_type,surrogate_param)
-        data_dim=1
-        for dim in data_shape:
-            data_dim*=dim
-        self.jump_connect=nn.Linear(data_dim,out_channels*self.output_height*self.output_width)
+
+        self.jump_connect=SeqToANNContainer(
+            nn.Conv2d(data_shape[0],out_channels,kernel_size=self.get_conv2d_kernel_size(data_shape,self.conv2d_output_height,
+                                                                                         self.conv2d_output_width),stride=1,padding=0)
+        )
+        # self.jump_connect=nn.Linear(data_dim,out_channels*self.output_height*self.output_width)
         # for param in self.jump_connect.parameters():
         #     param.requires_grad=False
-        self.set_t_layer_parameters(self.jump_connect,0.5)
+        # self.set_t_layer_parameters(self.jump_connect,0.5)
+    
+    def get_conv2d_kernel_size(self,data_shape:tuple,output_height:int,output_width:int) -> tuple[int,int]:
+        input_height,input_width=data_shape[1],data_shape[2]
+        padding=0
+        stride=1
+        kernel_height=input_height-(output_height-1)*stride-2*padding
+        kernel_width=input_width-(output_width-1)*stride-2*padding
+        return kernel_height,kernel_width
     
     def forward(self,X:torch.Tensor,input:torch.Tensor=None,target:bool=False) -> tuple[torch.Tensor,torch.Tensor]:
         self.reset()
         X=self.conv2d_layer(X)
+        jump_X=self.jump_connect(input)
+        X=X+jump_X
         if isinstance(self.f_lif,AxonLIFNode):
             X,c_X=self.f_lif(X)
             X=self.maxpool2d_layer(X)
@@ -253,8 +265,8 @@ class ConnectedConv2dBlock(ConvBaseBlock):
             X=self.maxpool2d_layer(X)
         y_t=None
         if target and isinstance(self.f_lif,AxonLIFNode):
-            jump_X=self.jump_connect(input.reshape(input.shape[0],input.shape[1],-1))
-            y_t=self.t_fc(self.flatten(c_X)+jump_X)
+            # jump_X=self.jump_connect(input.reshape(input.shape[0],input.shape[1],-1))
+            y_t=self.t_fc(self.flatten(c_X))
             y_t=self.t_lif(y_t)
             # y_t=y_t.unsqueeze(-1).unsqueeze(-1)
             # # c_X=self.flatten(X.clone().detach())
@@ -268,8 +280,8 @@ class ConnectedConv2dBlock(ConvBaseBlock):
             # # y_t=self.t_lif(y_t+X)
             # # y_t=F.relu(y_t)
         elif target and not isinstance(self.f_lif,AxonLIFNode):
-            jump_X=self.jump_connect(input.reshape(input.shape[0],input.shape[1],-1))
-            y_t=self.t_fc(self.flatten(X)+jump_X)
+            # jump_X=self.jump_connect(input.reshape(input.shape[0],input.shape[1],-1))
+            y_t=self.t_fc(self.flatten(X))
             y_t=self.t_lif(y_t)
         return X,y_t
     

@@ -17,7 +17,7 @@ axon_tau=10
 channels=32
 lr=1e-3
 batch_size=256
-epochs=100
+epochs=10
 straight_through=False
 # Spiking neuron hyperparameters
 surrogate_type='zo'
