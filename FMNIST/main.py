@@ -17,7 +17,7 @@ axon_tau=10
 channels=32
 lr=1e-3
 batch_size=256
-epochs=10
+epochs=100
 straight_through=False
 # Spiking neuron hyperparameters
 surrogate_type='zo'
@@ -48,7 +48,7 @@ test_data_loader=get_test_data_loader(batch_size,True)
 if __name__=='__main__':
     device=torch.device('cuda:0')
     result_path=os.path.dirname(os.path.abspath(__file__))
-    logging.basicConfig(level=logging.INFO,filename=result_path+'./result/train.log',filemode='w')
+    logging.basicConfig(level=logging.INFO,filename=result_path+'/result/train.log',filemode='w')
     logging.info(f'T={T}\ntau={tau}\nchannels={channels}\nlr={lr}\nbatch_size={batch_size}\nepochs={epochs}\nlr={lr}\
 surrogate_type={surrogate_type}\nsurrogate_param={surrogate_param}\ncriterion={criterion}\n \naxon_tau={axon_tau}\n\
 straight_through={straight_through}\n\n'.strip())
